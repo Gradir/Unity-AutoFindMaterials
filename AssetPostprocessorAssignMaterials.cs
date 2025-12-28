@@ -3,8 +3,6 @@ AutoFindMaterials - an asset postprocessor for 3D model assets
 it searches the project for materials first getting rid of the suffix
 default separator is dot - because Blender's default auto-naming is *.001, *.002 etc
 
-model's import settings should be set to "Import via MaterialDescription"
-(consider making it a Unity Preset and set it as default in Project Settings)
 "Import" action on a model asset will run this postprocessor
 
 Made by Piotr "Gradir" Kołodziejczyk (gradir@gmail.com)
@@ -19,22 +17,23 @@ public class AssetPostprocessorAssignMaterials : AssetPostprocessor
     const string MaterialString = "t:material ";
     const char Dot = '.';
 
-    void OnPreprocessModel()
+    public override int GetPostprocessOrder()
     {
-        var importer = (ModelImporter)assetImporter;
-        var existingRemaps = importer.GetExternalObjectMap();
-        foreach (var kvp in existingRemaps)
-            importer.RemoveRemap(kvp.Key);
+        return 100;
     }
 
     void OnPreprocessMaterialDescription(MaterialDescription description, Material material, AnimationClip[] animations)
     {
-        ((ModelImporter)assetImporter).AddRemap(new AssetImporter.SourceAssetIdentifier(material), GetMaterial(material.name));
+        var importer = (ModelImporter)assetImporter;
+        // Easy way of cleaning up previously assigned materials
+        importer.materialImportMode = ModelImporterMaterialImportMode.None;
+        importer.materialImportMode = ModelImporterMaterialImportMode.ImportViaMaterialDescription;
+        importer.AddRemap(new AssetImporter.SourceAssetIdentifier(material), GetMaterial(material.name));
     }
 
     Material GetMaterial(string materialNameInFbx)
     {
-        var truncatedName = materialNameInFbx.Substring(0, materialNameInFbx.LastIndexOf(Dot));
+        var truncatedName = materialNameInFbx.Contains(Dot)? materialNameInFbx.Substring(0, materialNameInFbx.LastIndexOf(Dot)) : materialNameInFbx;
         Debug.Log(truncatedName);
         var guids = AssetDatabase.FindAssets(MaterialString + truncatedName, _pathToSearch);
         for (var i = 0; i < guids.Length; i++)
